@@ -1,51 +1,77 @@
-local M = {
-  note_buf_ID = 0,
-  note_win_ID = 0,
+local M = {}
 
-  ns_id = vim.api.nvim_create_namespace('echoes'),
-}
+local ui = require('echoes.ui')
+local config = require('echoes.config')
+M.current_open_note = nil
+M.per_file_notes = {}
 
-local function set_window_with_format(buf_ID)
-  local offsetY = 2
-  local offsetX = 3
+local function merge(dst, ...)
+  for _, src in ipairs({ ... }) do
+    for k, v in pairs(src) do
+      dst[k] = v
+    end
+  end
+  return dst
+end
 
-  local win_width = vim.api.nvim_win_get_width(0)
-  local win_height = vim.api.nvim_win_get_height(0)
-  local width = math.max(1, math.floor(win_width * 0.4))
-  local height = math.max(1, math.floor(win_height * 0.4))
-  local row = offsetY
-  local col = math.max(0, win_width - width) - offsetX
+local create_note_on_cursor = function(current_buf)
+  local cursor_pos = vim.api.nvim_win_get_cursor(0)
+  local project_path = vim.api.nvim_buf_get_name(0)
 
-  M.note_win_ID = vim.api.nvim_open_win(buf_ID, true, {
-    relative = 'win',
-    anchor = 'NW',
-    row = row,
-    col = col,
-    width = width,
-    height = height,
-    border = { '╔', '═', '╗', '║', '╝', '═', '╚', '║' },
-    title = 'Note',
-  })
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  ui.create_note_marker(current_buf, M.ns_id, cursor_pos[1] - 1)
+
+  local new_note = { row = cursor_pos[1], filename = project_path, content = '' }
+  table.insert(M.per_file_notes, new_note)
+  return new_note
 end
 
 M.open_echo_note = function()
-  --// Make these opts
-  local dbPath = '~/.local/share/echoes.nvim/notes.db'
-  -- end
-  if M.note_win_ID ~= 0 and vim.api.nvim_win_is_valid(M.note_win_ID) then
-    vim.api.nvim_set_current_win(M.note_win_ID)
+  -- Forbid recurvsively opening notes within notes
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_win = vim.api.nvim_get_current_win()
+  if
+    M.current_open_note ~= nil
+    and M.current_open_note.active_window_id == current_win
+    and vim.api.nvim_win_is_valid(current_win)
+  then
+    vim.notify(
+      'ECHO ERR: Trying to open a note within a note, did you mean to do this?',
+      vim.log.levels.ERROR
+    )
     return
   end
 
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.bo[buf].filetype = 'markdown'
-  M.note_buf_ID = buf
-  vim.api.nvim_buf_set_extmark(vim.api.nvim_get_current_buf(), M.ns_id, 0, 0, {
-    end_row = 0 + 1,
-    hl_group = '@comment.note',
-    hl_eol = true,
-  })
-  set_window_with_format(buf)
-end
+  local file_notes = M.per_file_notes or {}
 
+  -- See if a note already exists on cursor
+  local cursor_pos_row = vim.api.nvim_win_get_cursor(0)[1]
+  local active_note = nil
+  for _, note in ipairs(file_notes) do
+    if note.row == cursor_pos_row then
+      active_note = note
+      break
+    end
+  end
+  if active_note == nil then
+    active_note = create_note_on_cursor(current_buf)
+  end
+
+  -- Create buffer with the content
+  local note_buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(note_buf, 0, -1, false, { active_note.content or '' })
+
+  vim.bo[note_buf].filetype = 'markdown'
+  -- Set to open on OG buffer
+  if config.options.disable_opened_note_line_highlight then
+    vim.api.nvim_buf_set_extmark(current_buf, M.ns_id, cursor_pos_row - 1, 0, {
+      end_row = 0 + 1,
+      hl_group = '@comment.note',
+      hl_eol = true,
+    })
+  end
+  local windowID = ui.open_note(note_buf)
+  M.current_open_note = merge(active_note, { active_window_id = windowID })
+end
 return M

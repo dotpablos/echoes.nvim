@@ -1,0 +1,35 @@
+local M = {}
+
+local config = require('echoes.config')
+
+M.open_note = function(buf_ID)
+  local opts = config.options
+  local win_width = vim.api.nvim_win_get_width(0)
+  local win_height = vim.api.nvim_win_get_height(0)
+  local width = math.max(1, math.floor(win_width * 0.4))
+  local height = math.max(1, math.floor(win_height * 0.4))
+  local row = opts.note_window_offsetY
+  local col = math.max(0, win_width - width) - opts.note_window_offsetX
+
+  return vim.api.nvim_open_win(buf_ID, true, {
+    relative = 'win',
+    anchor = 'NW',
+    row = row,
+    col = col,
+    width = width,
+    height = height,
+    border = { '╔', '═', '╗', '║', '╝', '═', '╚', '║' },
+    title = 'Note',
+  })
+end
+
+M.create_note_marker = function(buf, ns, row)
+  vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
+    virt_text = { { ' 󰎚 echo', 'Comment' } },
+    virt_text_pos = 'eol',
+    sign_text = '󰎚',
+    sign_hl_group = 'DiagnosticHint',
+  })
+end
+
+return M
