@@ -32,4 +32,20 @@ M.create_note_marker = function(buf, ns, row)
   })
 end
 
+M.generate_markers_for_file = function(buf, notes)
+  for _, note in ipairs(notes) do
+    M.create_note_marker(buf, M.ns, note.row - 1)
+  end
+end
+
+M.show_echo_marks = true
+M.toggle_echo_marks = function()
+  M.show_echo_marks = not M.show_echo_marks
+  local buf = vim.api.nvim_get_current_buf()
+  vim.api.nvim_buf_clear_namespace(buf, M.ns, 0, -1)
+  if M.show_echo_marks then
+    M.generate_markers_for_file(buf, {})
+  end
+end
+
 return M
