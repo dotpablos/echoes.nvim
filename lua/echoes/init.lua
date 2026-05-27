@@ -8,12 +8,9 @@ local M = {}
 M.config = {}
 
 M.setup = function(opts)
-  print('setup')
   config.merge_config(opts)
 
-  M.ns = vim.api.nvim_create_namespace('Echoes.nvim')
-  notes.ns_id = M.ns
-  ui.ns = M.ns
+  store.ns = vim.api.nvim_create_namespace('Echoes.nvim')
   local group = vim.api.nvim_create_augroup('Echoes', { clear = true })
 
   vim.api.nvim_create_user_command('OpenEchoNote', notes.open_echo_note, {})
@@ -29,7 +26,7 @@ M.setup = function(opts)
       end
 
       local file_notes = store.load_file_notes(file)
-      vim.api.nvim_buf_clear_namespace(args.buf, M.ns, 0, -1)
+      vim.api.nvim_buf_clear_namespace(args.buf, store.ns, 0, -1)
 
       if ui.show_echo_marks then
         ui.generate_markers_for_file(args.buf, file_notes)

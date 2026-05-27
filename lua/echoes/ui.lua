@@ -1,6 +1,7 @@
 local M = {}
 
 local config = require('echoes.config')
+local store = require('echoes.store')
 
 M.open_note = function(buf_ID)
   local opts = config.options
@@ -23,18 +24,16 @@ M.open_note = function(buf_ID)
   })
 end
 
-M.create_note_marker = function(buf, ns, row)
-  vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
+M.create_note_marker = function(buf, row)
+  vim.api.nvim_buf_set_extmark(buf, store.ns, row, 0, {
     virt_text = { { ' 󰎚 echo', 'Comment' } },
     virt_text_pos = 'eol',
-    sign_text = '󰎚',
-    sign_hl_group = 'DiagnosticHint',
   })
 end
 
 M.generate_markers_for_file = function(buf, notes)
   for _, note in ipairs(notes) do
-    M.create_note_marker(buf, M.ns, note.row - 1)
+    M.create_note_marker(buf, note.row - 1)
   end
 end
 
@@ -42,7 +41,7 @@ M.show_echo_marks = true
 M.toggle_echo_marks = function()
   M.show_echo_marks = not M.show_echo_marks
   local buf = vim.api.nvim_get_current_buf()
-  vim.api.nvim_buf_clear_namespace(buf, M.ns, 0, -1)
+  vim.api.nvim_buf_clear_namespace(buf, store.ns, 0, -1)
   if M.show_echo_marks then
     M.generate_markers_for_file(buf, {})
   end

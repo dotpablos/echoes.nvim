@@ -6,50 +6,17 @@ local store = require('echoes.store')
 
 M.current_open_note = nil
 
-local function save_open_note(buf)
-  if M.current_open_note == nil then
-    return
-  end
+local function refresh_file_markers(filename)
+  local file_notes = store.get_file_notes(filename)
 
-  local content = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), '\n')
-  M.current_open_note.content = content
-  store.unload_file_notes(M.current_open_note.filename)
-  vim.bo[buf].modified = false
-end
-
-local function configure_note_buffer(buf, note)
-  vim.bo[buf].buftype = 'acwrite'
-  vim.bo[buf].bufhidden = 'hide'
-  vim.bo[buf].swapfile = false
-  vim.bo[buf].filetype = 'markdown'
-  vim.api.nvim_buf_set_name(buf, string.format('echoes://%s:%d:%d', vim.fs.basename(note.filename), note.row, buf))
-
-  vim.api.nvim_create_autocmd('BufWriteCmd', {
-    buffer = buf,
-    callback = function(args)
-      save_open_note(args.buf)
-    end,
-  })
-end
-
-local function merge(dst, ...)
-  for _, src in ipairs({ ... }) do
-    for k, v in pairs(src) do
-      dst[k] = v
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.api.nvim_buf_get_name(buf) == filename then
+      vim.api.nvim_buf_clear_namespace(buf, store.ns, 0, -1)
+      if ui.show_echo_marks then
+        ui.generate_markers_for_file(buf, file_notes)
+      end
     end
   end
-  return dst
-end
-
-local create_note_on_cursor = function(current_buf)
-  local cursor_pos = vim.api.nvim_win_get_cursor(0)
-  local project_path = vim.api.nvim_buf_get_name(0)
-
-  ui.create_note_marker(current_buf, M.ns_id, cursor_pos[1] - 1)
-
-  local new_note = { row = cursor_pos[1], filename = project_path, content = '' }
-  store.add_note(new_note)
-  return new_note
 end
 
 M.open_echo_note = function()
@@ -81,23 +48,75 @@ M.open_echo_note = function()
     end
   end
   if active_note == nil then
-    active_note = create_note_on_cursor(current_buf)
+    ui.create_note_marker(current_buf, cursor_pos_row - 1)
+    active_note = { row = cursor_pos_row, content = '' }
+    store.add_note(current_file, active_note)
   end
 
   -- Create buffer with the content
   local note_buf = vim.api.nvim_create_buf(false, false)
-  configure_note_buffer(note_buf, active_note)
-  vim.api.nvim_buf_set_lines(note_buf, 0, -1, false, { active_note.content })
+  vim.bo[note_buf].buftype = 'acwrite'
+  vim.bo[note_buf].bufhidden = 'wipe'
+  vim.bo[note_buf].swapfile = false
+  vim.bo[note_buf].filetype = 'markdown'
+  vim.api.nvim_buf_set_name(
+    note_buf,
+    string.format(
+      'echoes://%s:%d:%d',
+      vim.fs.basename(current_file),
+      active_note.row,
+      note_buf
+    )
+  )
+  vim.api.nvim_create_autocmd('BufWriteCmd', {
+    buffer = note_buf,
+    callback = function(args)
+      if M.current_open_note == nil then
+        return
+      end
+
+      local content = table.concat(vim.api.nvim_buf_get_lines(args.buf, 0, -1, false), '\n')
+      -- Don't save the file if content is placeholder or empty
+      if
+        M.current_open_note.note.content == ''
+        and (vim.trim(content) == '' or content == config.options.placeholder_text)
+      then
+        store.remove_note(M.current_open_note.filename, M.current_open_note.note)
+        store.unload_file_notes(M.current_open_note.filename)
+        refresh_file_markers(M.current_open_note.filename)
+        M.current_open_note = nil
+        vim.bo[args.buf].modified = false
+        return
+      end
+
+      M.current_open_note.note.content = content
+      store.unload_file_notes(M.current_open_note.filename)
+      refresh_file_markers(M.current_open_note.filename)
+      vim.bo[args.buf].modified = false
+    end,
+  })
+
+  local initial_content = active_note.content
+  if initial_content == '' then
+    initial_content = config.options.placeholder_text
+  end
+
+  vim.api.nvim_buf_set_lines(note_buf, 0, -1, false, { initial_content })
 
   -- Set to open on OG buffer
   if config.options.disable_opened_note_line_highlight then
-    vim.api.nvim_buf_set_extmark(current_buf, M.ns_id, cursor_pos_row - 1, 0, {
+    vim.api.nvim_buf_set_extmark(current_buf, store.ns, cursor_pos_row - 1, 0, {
       end_row = 0 + 1,
       hl_group = '@comment.note',
       hl_eol = true,
     })
   end
   local windowID = ui.open_note(note_buf)
-  M.current_open_note = merge(active_note, { active_window_id = windowID, note_buf_id = note_buf })
+  M.current_open_note = {
+    note = active_note,
+    filename = current_file,
+    active_window_id = windowID,
+    note_buf_id = note_buf,
+  }
 end
 return M
