@@ -16,6 +16,7 @@ M.setup = function(opts)
   vim.api.nvim_create_user_command('OpenEchoNote', notes.open_echo_note, {})
 
   vim.api.nvim_create_user_command('ToggleEchoMarks', ui.toggle_echo_marks, {})
+  vim.api.nvim_create_user_command('DeleteEchoOnCursor', notes.delete_echo_note_on_cursor, {})
 
   vim.api.nvim_create_autocmd('BufEnter', {
     group = group,

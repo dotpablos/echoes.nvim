@@ -116,4 +116,27 @@ M.open_echo_note = function()
     note_buf_id = note_buf,
   }
 end
+
+M.delete_echo_note_on_cursor = function()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_file = vim.api.nvim_buf_get_name(current_buf)
+  local file_notes = store.get_file_notes(current_file)
+  local cursor_pos_row = vim.api.nvim_win_get_cursor(0)[1]
+  local note_under_cursor = nil
+
+  for _, note in ipairs(file_notes) do
+    if note.row == cursor_pos_row then
+      note_under_cursor = note
+      break
+    end
+  end
+  if note_under_cursor == nil then
+    vim.notify('ECHO ERR: No note found on cursor', vim.log.levels.ERROR)
+    return
+  end
+  store.remove_note(current_file, note_under_cursor)
+  store.unload_file_notes(current_file)
+  refresh_file_markers(current_file)
+end
+
 return M
