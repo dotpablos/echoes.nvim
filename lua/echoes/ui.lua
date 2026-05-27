@@ -24,16 +24,16 @@ M.open_note = function(buf_ID)
   })
 end
 
-M.create_note_marker = function(buf, row)
+M.create_note_marker = function(buf, row, title)
   vim.api.nvim_buf_set_extmark(buf, store.ns, row, 0, {
-    virt_text = { { ' 󰎚 echo', 'Comment' } },
+    virt_text = { { string.format('󰎚 echo | %s...', title or '"No title"'), 'Comment' } },
     virt_text_pos = 'eol',
   })
 end
 
 M.generate_markers_for_file = function(buf, notes)
   for _, note in ipairs(notes) do
-    M.create_note_marker(buf, note.row - 1)
+    M.create_note_marker(buf, note.row - 1, note.title)
   end
 end
 

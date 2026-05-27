@@ -49,7 +49,7 @@ M.open_echo_note = function()
   end
   if active_note == nil then
     ui.create_note_marker(current_buf, cursor_pos_row - 1)
-    active_note = { row = cursor_pos_row, content = '' }
+    active_note = { row = cursor_pos_row, content = '', title = '' }
     store.add_note(current_file, active_note)
   end
 
@@ -61,12 +61,7 @@ M.open_echo_note = function()
   vim.bo[note_buf].filetype = 'markdown'
   vim.api.nvim_buf_set_name(
     note_buf,
-    string.format(
-      'echoes://%s:%d:%d',
-      vim.fs.basename(current_file),
-      active_note.row,
-      note_buf
-    )
+    string.format('echoes://%s:%d:%d', vim.fs.basename(current_file), active_note.row, note_buf)
   )
   vim.api.nvim_create_autocmd('BufWriteCmd', {
     buffer = note_buf,
@@ -74,12 +69,13 @@ M.open_echo_note = function()
       if M.current_open_note == nil then
         return
       end
-
-      local content = table.concat(vim.api.nvim_buf_get_lines(args.buf, 0, -1, false), '\n')
-      -- Don't save the file if content is placeholder or empty
+      local buf_content = vim.api.nvim_buf_get_lines(args.buf, 0, -1, false)
+      local first_line = buf_content[1]
+      local content_str = table.concat(buf_content, '\n')
+      -- Don't save the file if content_str is placeholder or empty
       if
-        M.current_open_note.note.content == ''
-        and (vim.trim(content) == '' or content == config.options.placeholder_text)
+        M.current_open_note.note.content_str == ''
+        and (vim.trim(content_str) == '' or content_str == config.options.placeholder_text)
       then
         store.remove_note(M.current_open_note.filename, M.current_open_note.note)
         store.unload_file_notes(M.current_open_note.filename)
@@ -89,7 +85,8 @@ M.open_echo_note = function()
         return
       end
 
-      M.current_open_note.note.content = content
+      M.current_open_note.note.content_str = content_str
+      M.current_open_note.note.title = first_line
       store.unload_file_notes(M.current_open_note.filename)
       refresh_file_markers(M.current_open_note.filename)
       vim.bo[args.buf].modified = false
