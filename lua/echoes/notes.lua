@@ -5,6 +5,7 @@ local config = require('echoes.config')
 local store = require('echoes.store')
 
 M.current_open_note = nil
+M.temp_note_store = nil
 
 local function refresh_file_markers(filename)
   local file_notes = store.get_file_notes(filename)
@@ -74,7 +75,7 @@ M.open_echo_note = function()
       local content_str = table.concat(buf_content, '\n')
       -- Don't save the file if content_str is placeholder or empty
       if
-        M.current_open_note.note.content_str == ''
+        M.current_open_note.note.content == ''
         and (vim.trim(content_str) == '' or content_str == config.options.placeholder_text)
       then
         store.remove_note(M.current_open_note.filename, M.current_open_note.note)
@@ -85,7 +86,7 @@ M.open_echo_note = function()
         return
       end
 
-      M.current_open_note.note.content_str = content_str
+      M.current_open_note.note.content = content_str
       M.current_open_note.note.title = first_line
       store.unload_file_notes(M.current_open_note.filename)
       refresh_file_markers(M.current_open_note.filename)
@@ -137,6 +138,54 @@ M.delete_echo_note_on_cursor = function()
   store.remove_note(current_file, note_under_cursor)
   store.unload_file_notes(current_file)
   refresh_file_markers(current_file)
+end
+
+M.pickup_echo_note_on_cursor = function()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_file = vim.api.nvim_buf_get_name(current_buf)
+  local file_notes = store.get_file_notes(current_file)
+  local cursor_pos_row = vim.api.nvim_win_get_cursor(0)[1]
+  local note_under_cursor = nil
+
+  for _, note in ipairs(file_notes) do
+    if note.row == cursor_pos_row then
+      note_under_cursor = note
+      break
+    end
+  end
+  if note_under_cursor == nil or M.temp_note_store ~= nil then
+    vim.notify('ECHO ERR: No note found on cursor', vim.log.levels.ERROR)
+    return
+  end
+  M.temp_note_store = note_under_cursor
+  store.remove_note(current_file, note_under_cursor)
+  store.unload_file_notes(current_file)
+  refresh_file_markers(current_file)
+end
+
+M.drop_echo_note_on_cursor = function()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_file = vim.api.nvim_buf_get_name(current_buf)
+  local file_notes = store.get_file_notes(current_file)
+  local cursor_pos_row = vim.api.nvim_win_get_cursor(0)[1]
+
+  if M.temp_note_store == nil then
+    vim.notify('ECHO ERR: no note is currently being moved', vim.log.levels.ERROR)
+    return
+  end
+
+  for _, note in ipairs(file_notes) do
+    if note.row == cursor_pos_row then
+      vim.notify('ECHO ERR: a note already exists on this line', vim.log.levels.ERROR)
+      return
+    end
+  end
+
+  M.temp_note_store.row = cursor_pos_row
+  store.add_note(current_file, M.temp_note_store)
+  store.unload_file_notes(current_file)
+  refresh_file_markers(current_file)
+  M.temp_note_store = nil
 end
 
 return M
