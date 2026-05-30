@@ -4,10 +4,7 @@ Project specific and markdown notes for specific lines in Neovim.
 
 `echoes.nvim` lets you drop a note on the line you are thinking about, edit it in a small floating window, and come back later without losing the context. Its meant for notes like "why is this here?", "finish this later", and "how does this function fit into the codebase" moments that aren't worth cluttering a file with comments.
 
-<p align="center">
-  <!-- TODO: Replace this with your demo GIF. Suggested path: assets/echoes-demo.gif -->
-  <strong>Demo GIF goes here</strong>
-</p>
+<img width="500" height="221" alt="echoes" src="https://github.com/user-attachments/assets/ecd614f5-34fe-427f-9314-b5e4a5d7b0c5" />
 
 ## Requirements
 
