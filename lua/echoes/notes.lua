@@ -99,7 +99,13 @@ M.open_echo_note = function()
     initial_content = config.options.placeholder_text
   end
 
-  vim.api.nvim_buf_set_lines(note_buf, 0, -1, false, { initial_content })
+  vim.api.nvim_buf_set_lines(
+    note_buf,
+    0,
+    -1,
+    false,
+    vim.split(initial_content, '\n', { plain = true })
+  )
 
   -- Set to open on OG buffer
   if config.options.disable_opened_note_line_highlight then
